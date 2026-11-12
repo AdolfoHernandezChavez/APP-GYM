@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gym Sirenita</title>
+
+  <!-- Configuración PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#06182b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="assets/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Librerías externas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <div id="bg"></div>
+  <div id="bubbles"></div>
+
+  <!-- Pantalla de selección de perfil -->
+  <section id="welcome">
+    <h1>🔱 Gym bajo el mar</h1>
+    <p>Toca a tu personaje para entrar</p>
+    <div id="scene">
+      <img src="assets/images/fondo.jpeg" alt="Ariel y el Príncipe Eric bajo el mar" decoding="async">
+      <button class="hot ariel" data-p="ariel" aria-label="Perfil Ariel">
+        <span>🧜‍♀️ Ariel</span>
+      </button>
+      <button class="hot eric" data-p="eric" aria-label="Perfil Príncipe Eric">
+        <span>🤴 Príncipe Eric</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Aplicación principal -->
+  <div id="app" class="hidden">
+    <header>
+      <b id="who"></b>
+      <button id="menu-btn" aria-label="Volver al menú principal">🏠 Menú</button>
+    </header>
+
+    <div id="cloud-status" class="hidden" role="status"></div>
+
+    <main>
+      <!-- Vista 1: Ejercicios -->
+      <section id="v-ex">
+        <div class="row">
+          <input id="q" placeholder="🔍 Buscar ejercicio…">
+          <button id="open-add-ex" class="btn" style="padding: 8px 12px; font-size: 0.9rem;">＋ Ejercicio</button>
+        </div>
+        <div id="chips"></div>
+        <ul id="exlist" class="list"></ul>
+      </section>
+
+      <!-- Vista 2: Registro -->
+      <section id="v-log" class="hidden">
+        <h2 id="curEx"></h2>
+        <label>Fecha <input type="date" id="date"></label>
+        <div class="row">
+          <input id="w" type="number" inputmode="decimal" step="any" placeholder="Peso kg">
+          <input id="r" type="number" inputmode="numeric" placeholder="Reps">
+          <button id="add" class="btn">＋ Serie</button>
+        </div>
+        <ul id="sets" class="list"></ul>
+      </section>
+
+      <!-- Vista 3: Gráficas -->
+      <section id="v-stats" class="hidden">
+        <div class="tabs">
+          <button data-t="ariel">Ariel</button>
+          <button data-t="eric">Eric</button>
+          <button data-t="comp" class="on">Comparar</button>
+        </div>
+        <div class="row">
+          <select id="sex"></select>
+          <select id="met">
+            <option value="max">Peso máximo</option>
+            <option value="vol">Volumen</option>
+          </select>
+        </div>
+        <canvas id="chart"></canvas>
+      </section>
+    </main>
+
+    <nav>
+      <button data-v="v-ex" class="on">🔍<small>Ejercicios</small></button>
+      <button data-v="v-log">📝<small>Registro</small></button>
+      <button data-v="v-stats">📈<small>Gráficas</small></button>
+    </nav>
+  </div>
+
+  <!-- Modal del ejercicio -->
+  <dialog id="dlg">
+    <h3 id="dn"></h3>
+    <p id="dtarget" style="margin: 10px 0; color: var(--tq); font-weight: bold;"></p>
+
+    <a id="dvideo" href="#" target="_blank" rel="noopener" class="btn" style="display: block; text-align: center; text-decoration: none; margin-bottom: 12px; background: var(--blue); color: #fff;">
+      🎬 Ver vídeo de ejecución
+    </a>
+
+    <div class="row">
+      <button id="use" class="btn" style="flex: 1;">Registrar este ejercicio</button>
+      <button id="cls" style="background: var(--card); color: var(--tx); border: 1px solid var(--tq); border-radius: 12px; padding: 10px 14px;">Cerrar</button>
+    </div>
+  </dialog>
+
+  <!-- Modal: nuevo ejercicio -->
+  <dialog id="dlg-add-ex">
+    <h3>Añadir Nuevo Ejercicio</h3>
+
+    <div style="margin: 14px 0; display: grid; gap: 10px;">
+      <label style="font-size: 0.9rem;">
+        Nombre del ejercicio:
+        <input type="text" id="new-ex-name" placeholder="Ej: Elevaciones laterales" style="margin-top: 4px;">
+      </label>
+
+      <label style="font-size: 0.9rem;">
+        Músculo principal:
+        <select id="new-ex-target" style="margin-top: 4px;">
+          <option value="Pecho">Pecho</option>
+          <option value="Espalda">Espalda</option>
+          <option value="Pierna">Pierna</option>
+          <option value="Hombro">Hombro</option>
+          <option value="Brazos">Brazos</option>
+          <option value="Core">Core</option>
+          <option value="Cardio">Cardio</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="row">
+      <button id="save-new-ex" class="btn" style="flex: 1;">Guardar Ejercicio</button>
+      <button id="close-add-ex" style="background: var(--card); color: var(--tx); border: 1px solid var(--tq); border-radius: 12px; padding: 10px 14px;">Cancelar</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

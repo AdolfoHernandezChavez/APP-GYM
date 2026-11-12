@@ -1,0 +1,366 @@
+/* ==========================================
+   1. VARIABLES Y TEMA MAESTRO (DARK MARINE)
+   ========================================== */
+:root {
+  --bg: #06182b;
+  --card: #0c2a45;
+  --tq: #1de9d0;
+  --coral: #ff6b81;
+  --blue: #3b9cff;
+  --gold: #ffd166;
+  --vio: #8b5cf6;
+  --tx: #e6f7ff;
+}
+
+/* ==========================================
+   2. RESET Y ESTILOS GENERALES
+   ========================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(circle at 50% 0, #0b4a6e, var(--bg) 65%) fixed;
+  color: var(--tx);
+  font-family: system-ui, sans-serif;
+  min-height: 100vh;
+  padding-bottom: 84px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Utilidad para filas de botones/controles */
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+/* ==========================================
+   3. EFECTOS DE FONDO Y ANIMACIONES (BURBUJAS)
+   ========================================== */
+#bg {
+  position: fixed;
+  inset: -24px;
+  background: url(../assets/images/fondo.jpeg) center/cover;
+  filter: blur(14px) brightness(0.6);
+  z-index: 0;
+}
+
+body.in #bg {
+  filter: blur(2px) brightness(0.3);
+}
+
+#bubbles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+#bubbles span {
+  position: absolute;
+  bottom: -30px;
+  border-radius: 50%;
+  border: 1px solid #1de9d055;
+  background: #1de9d012;
+  animation: up linear infinite;
+}
+
+@keyframes up {
+  to {
+    transform: translateY(-115vh);
+  }
+}
+
+/* ==========================================
+   4. PANTALLA DE BIENVENIDA Y SELECCIÓN (WELCOMESECENE)
+   ========================================== */
+#welcome,
+#app {
+  position: relative;
+  z-index: 1;
+}
+
+#welcome {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12vh 16px 0;
+  text-align: center;
+}
+
+h1 {
+  color: var(--tq);
+  text-shadow: 0 0 18px var(--tq);
+  margin-bottom: 6px;
+}
+
+#scene {
+  position: relative;
+  width: min(100vw, 960px);
+  aspect-ratio: 16 / 9;
+  box-shadow: 0 0 40px #1de9d066;
+  z-index: 2; /* Elevamos el escenario */
+}
+
+#scene img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* Zonas interactivas (Hotspots de Ariel y Eric) */
+.hot {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.01);
+  border: 0;
+  border-radius: 45%;
+  cursor: pointer;
+  color: #fff;
+  z-index: 10;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hot:active {
+  background: radial-gradient(closest-side, #1de9d055, transparent);
+}
+
+.hot span {
+  position: absolute;
+  bottom: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: #06182bdd;
+  border: 2px solid;
+  border-radius: 18px;
+  padding: 5px 12px;
+  font-weight: 700;
+  font-size: clamp(0.72rem, 3.4vw, 1.1rem);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.hot.ariel {
+  left: 22%;
+  top: 12%;
+  width: 29%;
+  height: 82%;
+}
+
+.hot.ariel span {
+  border-color: var(--coral);
+  box-shadow: 0 0 14px var(--coral);
+}
+
+.hot.eric {
+  left: 51%;
+  top: 5%;
+  width: 25%;
+  height: 90%;
+}
+
+.hot.eric span {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px var(--gold);
+}
+
+@keyframes pulse {
+  50% {
+    transform: translateX(-50%) scale(1.07);
+  }
+}
+
+/* ==========================================
+   5. HEADER Y BARRA SUPERIOR DE LA APP
+   ========================================== */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  background: #06182bcc;
+  position: sticky;
+  top: 0;
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+
+header button,
+.tabs button,
+#cls {
+  background: var(--card);
+  color: var(--tx);
+  border: 1px solid var(--tq);
+  border-radius: 20px;
+  padding: 6px 12px;
+}
+
+/* Personalización del Header según el perfil activo */
+body.is-ariel header b {
+  color: var(--coral);
+}
+
+body.is-eric header b {
+  color: var(--gold);
+}
+
+/* ==========================================
+   6. MAQUETACIÓN PRINCIPAL Y FORMULARIOS
+   ========================================== */
+main {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid #1de9d055;
+  background: var(--card);
+  color: var(--tx);
+  font-size: 1rem;
+}
+
+.btn {
+  background: linear-gradient(135deg, var(--tq), var(--vio));
+  color: #021;
+  font-weight: 700;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+/* ==========================================
+   7. CHIPS DE CATEGORÍA Y PESTAÑAS (TABS)
+   ========================================== */
+#chips,
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0;
+}
+
+#chips button {
+  flex: none;
+  background: var(--card);
+  color: var(--tx);
+  border: 1px solid var(--vio);
+  border-radius: 16px;
+  padding: 5px 12px;
+}
+
+#chips .on,
+.tabs .on {
+  background: var(--tq);
+  color: #021;
+}
+
+/* ==========================================
+   8. LISTAS DE EJERCICIOS Y SERIES
+   ========================================== */
+.list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+}
+
+.list li {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.list small {
+  color: #8fb;
+  display: block;
+}
+
+.list button {
+  background: none;
+  border: 0;
+  font-size: 1.2rem;
+}
+
+/* ==========================================
+   9. NAVEGACIÓN INFERIOR (TABBAR)
+   ========================================== */
+nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: #06182bf2;
+  border-top: 1px solid var(--tq);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 6;
+}
+
+nav button {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--tx);
+  padding: 9px;
+  font-size: 1.4rem;
+  opacity: 0.6;
+}
+
+nav button.on {
+  opacity: 1;
+  text-shadow: 0 0 12px var(--tq);
+}
+
+nav small {
+  display: block;
+  font-size: 0.65rem;
+}
+
+/* ==========================================
+   10. DIÁLOGO MODAL (<dialog>)
+   ========================================== */
+dialog {
+  margin: auto;
+  width: 92%;
+  max-width: 480px;
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--card);
+  color: var(--tx);
+  border: 2px solid var(--tq);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+dialog::backdrop {
+  background: #000a;
+}
+
+
+#cloud-status {
+  margin: 8px 14px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #3a1220;
+  border: 1px solid var(--coral);
+  font-size: 0.85rem;
+}
