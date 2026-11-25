@@ -121,6 +121,7 @@ export function drawChart(canvasElement, logs, { tab, metric, exId }) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           labels: {

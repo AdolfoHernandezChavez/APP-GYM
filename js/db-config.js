@@ -53,6 +53,11 @@ export function subscribeExercises(onData, onError) {
   listen('exercises', 'name', onData, onError);
 }
 
+export async function deleteExercise(id) {
+  await authReady;
+  return deleteDoc(doc(db, 'exercises', id));
+}
+
 /** El id es un slug del nombre, así es estable y no se duplica */
 export async function addExercise({ id, name, target, videoUrl = '' }) {
   await authReady;

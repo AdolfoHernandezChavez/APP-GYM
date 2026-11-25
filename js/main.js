@@ -35,8 +35,8 @@ function todayLocal() {
 const state = {
   activeUser: null,
   //baseExercises: [],   // del archivo exercise.txt
-  cloudExercises: [],  // de Firestore
-  //exercises: [],       // mezcla de ambos
+  exercises: [],       // de Firestore
+  statsEx: null,       // ejercicio elegido en la gráfica (null = automático)
   logs: [],
   selectedExercise: null,
   activeGroup: '',
@@ -94,14 +94,6 @@ function setExercises(list) {
   renderExerciseList();
 }
 
-function mergeExercises() {
-  const merged = new Map();
-  state.baseExercises.forEach(ex => merged.set(ex.id, ex));
-  state.cloudExercises.forEach(ex => { if (!merged.has(ex.id)) merged.set(ex.id, ex); });
-  state.exercises = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  renderExerciseList();
-}
-
 function initCategoryChips() {
   const categories = ['Todos', ...MUSCLE_GROUPS];
   $('#chips').innerHTML = categories
@@ -151,6 +143,12 @@ function openExerciseModal(exercise) {
   }
 
   $('#use').onclick = () => selectExerciseForLog(exercise);
+  $('#del-ex').onclick = () => {
+    if (!confirm(`¿Eliminar "${exercise.name}"? Las series ya guardadas se conservan.`)) return;
+    runCloud(c => c.deleteExercise(exercise.id), 'No se pudo eliminar el ejercicio.');
+    if (state.selectedExercise?.id === exercise.id) state.selectedExercise = null;
+    $('#dlg').close();
+  };
   $('#dlg').showModal();
 }
 
@@ -163,6 +161,7 @@ function selectExerciseForLog(exercise) {
 
 function openAddExerciseModal() {
   $('#new-ex-name').value = '';
+  $('#new-ex-video').value = '';
   $('#new-ex-target').value = 'Pecho';
   $('#dlg-add-ex').showModal();
 }
@@ -179,7 +178,8 @@ function handleSaveNewExercise() {
   if (!id) return alert('Por favor, escribe un nombre válido para el ejercicio.');
   if (state.exercises.some(ex => ex.id === id)) return alert('Ese ejercicio ya existe.');
 
-  runCloud(c => c.addExercise({ id, name, target }), 'No se pudo guardar el ejercicio.');
+  const videoUrl = safeUrl($('#new-ex-video').value.trim());
+  runCloud(c => c.addExercise({ id, name, target, videoUrl }), 'No se pudo guardar el ejercicio.');
   closeAddExerciseModal();
 }
 
@@ -196,6 +196,8 @@ function selectProfile(profileId) {
   const profile = PROFILES[profileId];
   $('#who').textContent = `${profile.emoji} ${profile.name}`;
 
+  $('#date').value = todayLocal();
+  state.statsEx = null;
   renderLog();
 }
 
@@ -288,12 +290,20 @@ function handleSetsClick(event) {
 
 function renderStats() {
   const select = $('#sex');
-  const currentVal = select.value;
-  const exerciseMap = new Map(state.logs.map(log => [log.exId, log.exName]));
+
+  // Ejercicios con series guardadas, el más reciente primero
+  const byRecent = [...state.logs].sort((a, b) => b.ts - a.ts);
+  const exerciseMap = new Map();
+  byRecent.forEach(log => { if (!exerciseMap.has(log.exId)) exerciseMap.set(log.exId, log.exName); });
+
+  // Por defecto: el último ejercicio entrenado por el perfil activo
+  const lastMine = byRecent.find(log => log.user === state.activeUser);
+  let chosen = state.statsEx;
+  if (chosen === null || (chosen !== '' && !exerciseMap.has(chosen))) chosen = lastMine ? lastMine.exId : '';
 
   select.innerHTML = '<option value="">Todos los ejercicios</option>' +
     [...exerciseMap].map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join('');
-  select.value = exerciseMap.has(currentVal) ? currentVal : '';
+  select.value = chosen;
 
   if ($('#v-stats').classList.contains('hidden')) return;
 
@@ -312,13 +322,14 @@ async function connectCloud() {
     cloud = await import('./db-config.js');
 
     cloud.subscribeExercises(
-      list => { state.cloudExercises = list; mergeExercises(); },
+      list => setExercises(list),
       () => showCloudStatus('⚠️ No se pueden leer los ejercicios de la nube (revisa reglas/permisos).')
     );
 
-    cloud.subscribeExercises(
-      list => setExercises(list),
-      () => showCloudStatus('⚠️ No se pueden leer los ejercicios de la nube (revisa reglas/permisos).')
+    // Series guardadas: sin esto no aparecen en el registro ni en las gráficas
+    cloud.subscribe(
+      list => { state.logs = list; renderLog(); renderStats(); },
+      () => showCloudStatus('⚠️ No se pueden leer las series de la nube (revisa reglas/permisos).')
     );
   } catch (error) {
     console.error('Firebase no se pudo cargar:', error);
@@ -385,7 +396,8 @@ function initApp() {
     $$('.tabs button').forEach(x => x.classList.toggle('on', x === btn));
     renderStats();
   });
-  $('#sex').onchange = $('#met').onchange = renderStats;
+  $('#sex').onchange = () => { state.statsEx = $('#sex').value; renderStats(); };
+  $('#met').onchange = renderStats;
 
   $('#welcome').classList.remove('hidden');
   $('#app').classList.add('hidden');
