@@ -44,7 +44,7 @@ body {
 #bg {
   position: fixed;
   inset: -24px;
-  background: url(../assets/images/fondo.jpeg) center/cover;
+  background: url(../assets/images/fondo-bg.jpg) center/cover;
   filter: blur(14px) brightness(0.6);
   z-index: 0;
 }
@@ -363,4 +363,28 @@ dialog::backdrop {
   background: #3a1220;
   border: 1px solid var(--coral);
   font-size: 0.85rem;
+}
+/* ==========================================
+   11. AJUSTES MÓVIL (vertical) Y ESCENA
+   ========================================== */
+body { min-height: 100dvh; padding-bottom: calc(84px + env(safe-area-inset-bottom)); -webkit-text-size-adjust: 100%; }
+main { grid-template-columns: minmax(0, 1fr); }
+main > section { min-width: 0; display: grid; gap: 12px; }
+main > section.hidden { display: none !important; }
+.row > input, .row > select { min-width: 0; flex: 1; }
+label { display: block; }
+.list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.list button, header button, nav button { min-height: 44px; min-width: 44px; }
+.list button { padding: 0 8px; }
+.chartbox { position: relative; height: min(58dvh, 420px); width: 100%; }
+dialog { max-height: 88dvh; }
+button { touch-action: manipulation; }
+h1 { font-size: clamp(1.4rem, 6vw, 2.2rem); }
+#welcome { padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom); }
+#scene { width: min(100vw, 960px, calc((100dvh - 150px) * 16 / 9)); }
+@media (orientation: portrait) {
+  #scene { aspect-ratio: 1597 / 1438; width: min(100vw, 640px); }
+  .hot.ariel { left: 6.4%; top: 12%; width: 46.8%; height: 82%; }
+  .hot.eric { left: 53.2%; top: 5%; width: 40.4%; height: 90%; }
+  .hot span { font-size: clamp(0.8rem, 3.8vw, 1.1rem); }
 }
