@@ -1,4 +1,4 @@
-const V = 'sirena-v5';
+const V = 'sirena-v6';
 
 const SHELL = [
   './',
@@ -10,12 +10,15 @@ const SHELL = [
   'js/db-config.js',
   //'assets/data/exercise.txt',
   'assets/icons/icon-192.png',
-  'assets/images/fondo.jpeg'
+  'assets/icons/icon-512.png',
+  'assets/images/fondo.jpg',
+  'assets/images/fondo-vertical.jpg',
+  'assets/images/fondo-bg.jpg'
 ];
 
 self.addEventListener('install', e => e.waitUntil(
   caches.open(V)
-    .then(c => Promise.all(SHELL.map(url => c.add(url).catch(() => console.warn('No cacheado:', url)))))
+    .then(c => Promise.all(SHELL.map(url => c.add(new Request(url, { cache: 'reload' })).catch(() => console.warn('No cacheado:', url)))))
     .then(() => self.skipWaiting())
 ));
 

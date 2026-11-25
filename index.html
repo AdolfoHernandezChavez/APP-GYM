@@ -30,7 +30,7 @@
     <h1>🔱 Gym bajo el mar</h1>
     <p>Toca a tu personaje para entrar</p>
     <div id="scene">
-      <img src="assets/images/fondo.jpeg" alt="Ariel y el Príncipe Eric bajo el mar" decoding="async">
+      <picture><source media="(orientation: portrait)" srcset="assets/images/fondo-vertical.jpg"><img src="assets/images/fondo.jpg" alt="Ariel y el Príncipe Eric bajo el mar" decoding="async"></picture>
       <button class="hot ariel" data-p="ariel" aria-label="Perfil Ariel">
         <span>🧜‍♀️ Ariel</span>
       </button>
@@ -86,7 +86,7 @@
             <option value="vol">Volumen</option>
           </select>
         </div>
-        <canvas id="chart"></canvas>
+        <div class="chartbox"><canvas id="chart"></canvas></div>
       </section>
     </main>
 
@@ -108,6 +108,7 @@
 
     <div class="row">
       <button id="use" class="btn" style="flex: 1;">Registrar este ejercicio</button>
+      <button id="del-ex" aria-label="Eliminar ejercicio" style="background: var(--card); border: 1px solid var(--coral); border-radius: 12px; padding: 10px 12px;">🗑️</button>
       <button id="cls" style="background: var(--card); color: var(--tx); border: 1px solid var(--tq); border-radius: 12px; padding: 10px 14px;">Cerrar</button>
     </div>
   </dialog>
@@ -120,6 +121,10 @@
       <label style="font-size: 0.9rem;">
         Nombre del ejercicio:
         <input type="text" id="new-ex-name" placeholder="Ej: Elevaciones laterales" style="margin-top: 4px;">
+      </label>
+      <label style="font-size: 0.9rem;">
+        Enlace de vídeo (opcional):
+        <input type="url" id="new-ex-video" placeholder="https://musclewiki.com/..." style="margin-top: 4px;">
       </label>
 
       <label style="font-size: 0.9rem;">
