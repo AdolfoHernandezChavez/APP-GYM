@@ -24,49 +24,57 @@ const PROFILE_NAMES = {
 let chartInstance = null;
 
 // ==========================================
-// 2. CÁLCULOS Y PROCESAMIENTO DE DATOS
+// 2. DATOS: MÉTRICA, CICLO Y CONTEXTO DE FATIGA
 // ==========================================
-/**
- * Calcula el valor acumulado según la métrica elegida (Max Peso o Volumen)
- * @param {Array} logs - Registros filtrados de la fecha y usuario
- * @param {string} metric - 'max' (peso máximo) o 'vol' (volumen = peso x reps)
- * @returns {number|null}
- */
-function calculateMetricValue(logs, metric) {
-  if (!logs.length) return null;
+const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+const inPeriod = (periods, d) => periods.some(p => p.start <= d && d <= (p.end || '9999-12-31'));
 
-  if (metric === 'max') {
-    return Math.max(...logs.map(log => log.weight));
-  }
-
-  // Volumen total (Suma de Peso * Repeticiones de cada serie)
-  return logs.reduce((total, log) => total + (log.weight * log.reps), 0);
+function metricValue(rows, metric) {
+  if (!rows.length) return null;
+  return metric === 'max'
+    ? Math.max(...rows.map(l => l.weight))
+    : rows.reduce((t, l) => t + l.weight * l.reps, 0);
 }
 
-/**
- * Prepara las series de datos (datasets) para Chart.js
- * @param {Array} users - Lista de usuarios a procesar (['ariel'], ['eric'] o ambos)
- * @param {Array} dates - Lista ordenada de fechas únicas
- * @param {Array} filteredLogs - Registros de entrenamiento filtrados
- * @param {string} metric - Métrica activa ('max' o 'vol')
- * @returns {Array} Datasets listos para Chart.js
- */
-function buildDatasets(users, dates, filteredLogs, metric) {
+/** Texto del ciclo para una fecha (null si no hay datos) */
+function cycleText(periods, date) {
+  const p = periods.find(x => x.start <= date && date <= (x.end || '9999-12-31'));
+  if (p) return `Día ${daysBetween(p.start, date) + 1} de la regla`;
+  const prev = [...periods].filter(x => x.start <= date).pop();
+  return prev ? `Día ${daysBetween(prev.start, date) + 1} del ciclo` : null;
+}
+
+function buildDatasets(users, dates, logs, metric, { exId, ctx, periods }) {
   return users.map(user => {
-    const dataPoints = dates.map(date => {
-      const logsByDate = filteredLogs.filter(log => log.user === user && log.date === date);
-      return calculateMetricValue(logsByDate, metric);
-    });
-
     const colors = PROFILE_COLORS[user];
-
+    const userPeriods = user === 'ariel' ? periods : [];
+    const points = dates.map(date => {
+      const rows = logs.filter(l => l.user === user && l.date === date);
+      const lines = [];
+      let fatigued = false;
+      const c = exId && ctx.get(`${user}|${date}|${exId}`);
+      if (c) {
+        lines.push(`Ejercicio nº ${c.pos} de ${c.total} del día`);
+        fatigued = c.priorSets > 0;
+        lines.push(fatigued
+          ? `Antes: ${c.prior.join(', ')} (${c.priorSets} series de ${c.group})`
+          : 'Sin fatiga previa del mismo grupo');
+      }
+      const cyc = cycleText(userPeriods, date);
+      if (cyc) lines.push(`🌙 ${cyc}`);
+      return { value: metricValue(rows, metric), lines, fatigued };
+    });
     return {
       label: PROFILE_NAMES[user],
-      data: dataPoints,
+      data: points.map(p => p.value),
+      meta: points,
       borderColor: colors.line,
       backgroundColor: colors.fill,
-      pointBackgroundColor: colors.point,
-      pointRadius: 5,
+      pointBorderColor: colors.point,
+      pointBorderWidth: 2,
+      pointBackgroundColor: c => (c.dataset.meta?.[c.dataIndex]?.fatigued ? 'rgba(6,24,43,1)' : colors.point),
+      pointStyle: c => (c.dataset.meta?.[c.dataIndex]?.fatigued ? 'rectRot' : 'circle'),
+      pointRadius: c => (c.dataset.meta?.[c.dataIndex]?.fatigued ? 7 : 5),
       tension: 0.35,
       fill: true,
       spanGaps: true
@@ -74,75 +82,55 @@ function buildDatasets(users, dates, filteredLogs, metric) {
   });
 }
 
+/** Franjas suaves detrás de los días que caen dentro de la regla */
+const bandsPlugin = periods => ({
+  id: 'bands',
+  beforeDatasetsDraw(chart) {
+    const labels = chart.data.labels;
+    if (!labels.length || !periods.length) return;
+    const { ctx, chartArea: a, scales: { x } } = chart;
+    const step = labels.length > 1 ? x.getPixelForValue(1) - x.getPixelForValue(0) : a.width;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 107, 129, 0.16)';
+    labels.forEach((d, i) => {
+      if (!inPeriod(periods, d)) return;
+      const cx = x.getPixelForValue(i);
+      const left = Math.max(a.left, cx - step / 2);
+      const right = Math.min(a.right, cx + step / 2);
+      ctx.fillRect(left, a.top, right - left, a.bottom - a.top);
+    });
+    ctx.restore();
+  }
+});
+
 // ==========================================
 // 3. RENDERIZADO DEL GRÁFICO (CHART.JS)
 // ==========================================
-/**
- * Renderiza o actualiza la gráfica de evolución del entrenamiento
- * @param {HTMLCanvasElement} canvasElement - Elemento <canvas> del DOM
- * @param {Array} logs - Lista completa de registros
- * @param {Object} options - Opciones del filtro { tab, metric, exId }
- */
-export function drawChart(canvasElement, logs, { tab, metric, exId }) {
-  if (!canvasElement || typeof Chart === 'undefined') return;
-
-  // 1. Filtrar registros por ejercicio si hay uno seleccionado
-  const filteredLogs = logs.filter(log => !exId || log.exId === exId);
-
-  // 2. Determinar usuarios a mostrar (Pestaña 'comp' muestra a ambos)
+/** options: { tab, metric, exId, ctx (Map de fatiga), periods (regla de Ariel) } */
+export function drawChart(canvas, logs, { tab, metric, exId, ctx = new Map(), periods = [] }) {
+  if (!canvas || typeof Chart === 'undefined') return;
+  const rows = logs.filter(l => !exId || l.exId === exId);
   const users = tab === 'comp' ? ['ariel', 'eric'] : [tab];
+  const dates = [...new Set(rows.filter(l => users.includes(l.user)).map(l => l.date))].sort();
+  const datasets = buildDatasets(users, dates, rows, metric, { exId, ctx, periods });
 
-  // 3. Extraer y ordenar las fechas únicas de los registros de los usuarios seleccionados
-  const dates = [...new Set(
-    filteredLogs
-      .filter(log => users.includes(log.user))
-      .map(log => log.date)
-  )].sort();
-
-  // 4. Generar los datasets con la información procesada
-  const datasets = buildDatasets(users, dates, filteredLogs, metric);
-
-  // 5. Destruir la instancia anterior para evitar parpadeos o superposición
-  if (chartInstance) {
-    chartInstance.destroy();
-  }
-
-  // Estilos visuales del tema bajo el mar
-  const textColor = '#e6f7ff';
-  const gridColor = '#1de9d022';
-  const yAxisTitle = metric === 'max' ? 'kg' : 'kg × reps';
-
-  // 6. Crear la nueva instancia de Chart.js
-  chartInstance = new Chart(canvasElement, {
+  chartInstance?.destroy();
+  const text = '#e6f7ff', grid = '#1de9d022';
+  chartInstance = new Chart(canvas, {
     type: 'line',
-    data: {
-      labels: dates,
-      datasets
-    },
+    data: { labels: dates, datasets },
+    plugins: [bandsPlugin(users.includes('ariel') ? periods : [])],
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          labels: {
-            color: textColor
-          }
-        }
+        legend: { labels: { color: text } },
+        tooltip: { callbacks: { afterLabel: c => c.dataset.meta?.[c.dataIndex]?.lines || [] } }
       },
       scales: {
-        x: {
-          ticks: { color: textColor },
-          grid: { color: gridColor }
-        },
-        y: {
-          ticks: { color: textColor },
-          grid: { color: gridColor },
-          title: {
-            display: true,
-            color: textColor,
-            text: yAxisTitle
-          }
-        }
+        x: { ticks: { color: text }, grid: { color: grid } },
+        y: { ticks: { color: text }, grid: { color: grid },
+             title: { display: true, color: text, text: metric === 'max' ? 'kg' : 'kg × reps' } }
       }
     }
   });

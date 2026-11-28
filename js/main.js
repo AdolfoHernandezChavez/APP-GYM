@@ -11,6 +11,9 @@ const PROFILES = {
   eric: { name: 'Príncipe Eric', emoji: '🤴' }
 };
 
+// Si es false, Eric no ve la tarjeta ni el sombreado del ciclo de Ariel
+const SHOW_CYCLE_TO_PARTNER = true;
+
 const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Pierna', 'Hombro', 'Brazos', 'Core', 'Cardio'];
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => (
@@ -29,6 +32,8 @@ function todayLocal() {
   return d.toISOString().slice(0, 10);
 }
 
+const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+
 // ==========================================
 // 2. ESTADO
 // ==========================================
@@ -38,6 +43,8 @@ const state = {
   exercises: [],       // de Firestore
   statsEx: null,       // ejercicio elegido en la gráfica (null = automático)
   logs: [],
+  periods: [],         // regla de Ariel (Firestore)
+  unsubs: [],          // escuchas activas de Firestore
   selectedExercise: null,
   activeGroup: '',
   activeTab: 'comp'
@@ -199,6 +206,7 @@ function selectProfile(profileId) {
   $('#date').value = todayLocal();
   state.statsEx = null;
   renderLog();
+  renderCycle();
 }
 
 function showMainMenu() {
@@ -307,34 +315,139 @@ function renderStats() {
 
   if ($('#v-stats').classList.contains('hidden')) return;
 
+  const canSeeCycle = SHOW_CYCLE_TO_PARTNER || state.activeUser === 'ariel';
   drawChart($('#chart'), state.logs, {
     tab: state.activeTab,
     metric: $('#met').value,
-    exId: select.value
+    exId: select.value,
+    ctx: buildContext(state.logs),
+    periods: canSeeCycle ? arielPeriods() : []
   });
 }
 
 // ==========================================
 // 6. NUBE (FIREBASE) Y PWA
 // ==========================================
+// ==========================================
+// FATIGA: orden del ejercicio y series previas del mismo grupo
+// ==========================================
+function buildContext(logs) {
+  const targetOf = id => state.exercises.find(e => e.id === id)?.target || null;
+  const ctx = new Map();
+  const days = new Map();
+  [...logs].sort((a, b) => a.ts - b.ts).forEach(l => {
+    const k = `${l.user}|${l.date}`;
+    if (!days.has(k)) days.set(k, []);
+    days.get(k).push(l);
+  });
+  days.forEach((day, k) => {
+    const blocks = []; // ejercicios del día en orden de su primera serie
+    day.forEach(l => {
+      let b = blocks.find(x => x.exId === l.exId);
+      if (!b) { b = { exId: l.exId, name: l.exName, group: targetOf(l.exId), sets: 0 }; blocks.push(b); }
+      b.sets++;
+    });
+    blocks.forEach((b, i) => {
+      const prev = blocks.slice(0, i).filter(p => p.group && p.group === b.group);
+      ctx.set(`${k}|${b.exId}`, {
+        pos: i + 1, total: blocks.length, group: b.group,
+        priorSets: prev.reduce((s, p) => s + p.sets, 0), prior: prev.map(p => p.name)
+      });
+    });
+  });
+  return ctx;
+}
+
+// ==========================================
+// CICLO (solo perfil de Ariel)
+// ==========================================
+const arielPeriods = () => state.periods.filter(p => p.user === 'ariel').sort((a, b) => a.start.localeCompare(b.start));
+
+function renderCycle() {
+  const show = state.activeUser === 'ariel';
+  $('#cycle-card').classList.toggle('hidden', !show);
+  if (!show) return;
+  const list = arielPeriods();
+  const open = list.find(p => !p.end);
+  const last = list[list.length - 1];
+  const today = todayLocal();
+  $('#cycle-switch').checked = !!open;
+  $('#cycle-info').textContent = open
+    ? `Día ${daysBetween(open.start, today) + 1} de la regla`
+    : last
+      ? `Día ${daysBetween(last.start, today) + 1} del ciclo (última regla: ${last.start.split('-').reverse().join('/')})`
+      : 'Sin datos todavía';
+  $('#cycle-list').innerHTML = list.slice(-6).reverse().map(p => `
+    <li>
+      <input type="date" data-s="${escapeHtml(p.id)}" value="${escapeHtml(p.start)}" aria-label="Inicio">
+      <input type="date" data-f="${escapeHtml(p.id)}" value="${escapeHtml(p.end || '')}" aria-label="Fin">
+      <button data-x="${escapeHtml(p.id)}" aria-label="Eliminar">🗑️</button>
+    </li>`).join('');
+}
+
+function initCycleControls() {
+  $('#cycle-switch').onchange = event => {
+    const open = arielPeriods().find(p => !p.end);
+    if (event.target.checked && !open) {
+      runCloud(c => c.addPeriod({ user: 'ariel', start: todayLocal(), end: null }), 'No se pudo guardar la regla.');
+    } else if (!event.target.checked && open) {
+      runCloud(c => c.updatePeriod(open.id, { end: todayLocal() }), 'No se pudo guardar la regla.');
+    }
+  };
+  $('#cycle-list').addEventListener('change', event => {
+    const el = event.target;
+    if (!el.value && !el.dataset.f) return;
+    const fields = el.dataset.s ? { start: el.value } : { end: el.value || null };
+    runCloud(c => c.updatePeriod(el.dataset.s || el.dataset.f, fields), 'No se pudo actualizar la fecha.');
+  });
+  $('#cycle-list').addEventListener('click', event => {
+    const btn = event.target.closest('button[data-x]');
+    if (btn && confirm('¿Eliminar este periodo?')) runCloud(c => c.deletePeriod(btn.dataset.x), 'No se pudo eliminar.');
+  });
+}
+
+// ==========================================
+// 6. ACCESO, NUBE (FIREBASE) Y PWA
+// ==========================================
+function showLogin() {
+  state.activeUser = null;
+  document.body.className = '';
+  $('#app').classList.add('hidden');
+  $('#welcome').classList.add('hidden');
+  $('#login').classList.remove('hidden');
+}
+
+function hideLogin() {
+  $('#login').classList.add('hidden');
+  $('#welcome').classList.toggle('hidden', !!state.activeUser);
+  $('#app').classList.toggle('hidden', !state.activeUser);
+}
+
+function stopListening() {
+  state.unsubs.forEach(stop => stop());
+  state.unsubs = [];
+  state.logs = []; state.exercises = []; state.periods = [];
+}
+
 async function connectCloud() {
   try {
     cloud = await import('./db-config.js');
-
-    cloud.subscribeExercises(
-      list => setExercises(list),
-      () => showCloudStatus('⚠️ No se pueden leer los ejercicios de la nube (revisa reglas/permisos).')
-    );
-
-    // Series guardadas: sin esto no aparecen en el registro ni en las gráficas
-    cloud.subscribe(
-      list => { state.logs = list; renderLog(); renderStats(); },
-      () => showCloudStatus('⚠️ No se pueden leer las series de la nube (revisa reglas/permisos).')
-    );
+    cloud.watchAuth(user => {
+      stopListening();
+      if (!user) return showLogin();
+      hideLogin();
+      showCloudStatus('');
+      const denied = what => () => showCloudStatus(`⚠️ No se pueden leer ${what} (revisa reglas/permisos).`);
+      state.unsubs = [
+        cloud.subscribeExercises(list => setExercises(list), denied('los ejercicios')),
+        cloud.subscribe(list => { state.logs = list; renderLog(); renderStats(); }, denied('las series')),
+        cloud.subscribeCycle(list => { state.periods = list; renderCycle(); renderStats(); }, denied('los datos del ciclo'))
+      ];
+    });
   } catch (error) {
     console.error('Firebase no se pudo cargar:', error);
     cloud = null;
-    showCloudStatus('⚠️ Sin conexión con la base de datos. Revisa db-config.js.');
+    $('#login-err').textContent = 'No se pudo conectar con la base de datos.';
   }
 }
 
@@ -399,8 +512,25 @@ function initApp() {
   $('#sex').onchange = () => { state.statsEx = $('#sex').value; renderStats(); };
   $('#met').onchange = renderStats;
 
-  $('#welcome').classList.remove('hidden');
-  $('#app').classList.add('hidden');
+  initCycleControls();
+  $('#logout-btn').onclick = () => { if (confirm('¿Cerrar sesión en este móvil?')) cloud?.logout(); };
+  $('#login-form').onsubmit = async event => {
+    event.preventDefault();
+    if (!cloud) return;
+    $('#login-err').textContent = '';
+    try {
+      await cloud.login($('#login-email').value.trim(), $('#login-pass').value);
+      $('#login-pass').value = '';
+    } catch (error) {
+      $('#login-err').textContent = 'Correo o contraseña incorrectos.';
+    }
+  };
+  $('#login-reset').onclick = async () => {
+    const email = $('#login-email').value.trim();
+    if (!cloud || !email) return alert('Escribe primero tu correo.');
+    try { await cloud.resetPassword(email); alert('Te hemos enviado un correo para cambiar la contraseña.'); }
+    catch (error) { alert('No se pudo enviar el correo.'); }
+  };
 
   // --- Después, datos y PWA ---
   //loadBaseExercises();
