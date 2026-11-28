@@ -26,7 +26,18 @@
   <div id="bubbles"></div>
 
   <!-- Pantalla de selección de perfil -->
-  <section id="welcome">
+  <section id="login">
+    <form id="login-form" autocomplete="on">
+      <h1>🔱 Gym bajo el mar</h1>
+      <input id="login-email" type="email" autocomplete="username" placeholder="Correo" required>
+      <input id="login-pass" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+      <button class="btn" type="submit">Entrar</button>
+      <button id="login-reset" type="button" style="background:none;border:0;color:var(--tq);">He olvidado la contraseña</button>
+      <small id="login-err" style="color:var(--coral);min-height:1.2em;"></small>
+    </form>
+  </section>
+
+  <section id="welcome" class="hidden">
     <h1>🔱 Gym bajo el mar</h1>
     <p>Toca a tu personaje para entrar</p>
     <div id="scene">
@@ -44,7 +55,7 @@
   <div id="app" class="hidden">
     <header>
       <b id="who"></b>
-      <button id="menu-btn" aria-label="Volver al menú principal">🏠 Menú</button>
+      <span><button id="menu-btn" aria-label="Volver al menú principal">🏠 Menú</button> <button id="logout-btn" aria-label="Cerrar sesión">🚪</button></span>
     </header>
 
     <div id="cloud-status" class="hidden" role="status"></div>
@@ -62,6 +73,11 @@
 
       <!-- Vista 2: Registro -->
       <section id="v-log" class="hidden">
+        <div id="cycle-card" class="card hidden">
+          <label class="switch"><input type="checkbox" id="cycle-switch"> 🌙 Hoy tengo la regla</label>
+          <small id="cycle-info"></small>
+          <details><summary>Corregir fechas</summary><ul id="cycle-list" class="list"></ul></details>
+        </div>
         <h2 id="curEx"></h2>
         <label>Fecha <input type="date" id="date"></label>
         <div class="row">
@@ -87,6 +103,7 @@
           </select>
         </div>
         <div class="chartbox"><canvas id="chart"></canvas></div>
+        <p class="legend">● fresco · ◇ con fatiga previa · ▒ regla (toca un punto para ver el detalle)</p>
       </section>
     </main>
 

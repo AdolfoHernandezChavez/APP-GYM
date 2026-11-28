@@ -1,4 +1,4 @@
-const V = 'sirena-v6';
+const V = 'sirena-v7';
 
 const SHELL = [
   './',
